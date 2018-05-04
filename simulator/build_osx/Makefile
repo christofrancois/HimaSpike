@@ -14,7 +14,7 @@ DEPS     = $(addprefix $(OBJECTS_PATH)/,$(patsubst %.cpp,%.d, $(abspath $(SOURCE
 INCLUDES = $(addprefix -I,$(LOCAL_INCLUDES))
 LIBS    += $(addprefix -framework ,$(FRAMEWORKS))
 
-CFLAGS += -std=c++14 -Werror
+CFLAGS += -std=c++14 -Werror -O3
 
 define check-pkg
   ifneq ($$(shell pkg-config --exists $(1) && echo OK),OK)
@@ -26,7 +26,7 @@ endef
 
 $(foreach pkg,$(PACKAGES),$(eval $(call check-pkg,$(pkg))))
 
-all: loop-example
+all: Simulator
 
 clean:
 	@rm -fr $(OBJECTS_PATH)
@@ -44,7 +44,7 @@ $(OBJECTS_PATH)/%.o: %.c
 	@mkdir -p $(@D)
 	@$(CC) -c $< -o $@ $(INCLUDES) $(CFLAGS) -MD
 
-loop-example: $(OBJECTS)
+Simulator: $(OBJECTS)
 	@echo [LINK] $@
 	@$(CXX) -o $@ $(OBJECTS) $(LIBS)
 

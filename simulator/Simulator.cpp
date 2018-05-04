@@ -14,23 +14,25 @@
 #include <thread>
 #include <unistd.h>
 
-
+unsigned long timesteps=0;
 
 class Point3 {
 public:
-    Point3(): x(0), y(0), z(0) {
-    }
-    Point3(int xx, int yy, int zz): x(xx), y(yy), z(zz) {
-    }
-    Point3(std::tuple<int, int, int> p) {
-        x = std::get<0>(p);
-        y = std::get<1>(p);
-        z = std::get<2>(p);
-    }
+    Point3(): x(0), y(0), z(0) { }
+    Point3(int xx, int yy, int zz): x(xx), y(yy), z(zz) { }
+    Point3(std::tuple<int, int, int> p) { x = std::get<0>(p); y = std::get<1>(p); z = std::get<2>(p); }
     bool operator ==(const Point3& other){
         if(x==other.x && y == other.y && z == other.z) return true;
         return false;
     }
+    std::tuple<int,int,int> asTuple(){ 
+        return std::make_tuple(x,y,z); 
+    }
+    int * getData(){
+        int *dataPointer = &x;
+        return dataPointer;
+    }
+
     void *cachedReference = NULL;
     int x = 0;
     int y = 0;
@@ -39,17 +41,14 @@ public:
 
 class DataPackage {
 public:
-    DataPackage() {
-    }
+    DataPackage() { }
     DataPackage(Point3 toAddress, float ip, float dly, void *pointer):
-        p(toAddress), inputParameter(ip), delay(dly), directPointer(pointer) {
-            empty=false;
-    }
+        p(toAddress), inputParameter(ip), delay(dly), directPointer(pointer), empty(false) { }
+
     DataPackage(Point3 toAddress, float ip, float dly):
-        p(toAddress), inputParameter(ip), delay(dly), directPointer(NULL) {
-            empty=false;
-    }
-    bool decrement(){
+        p(toAddress), inputParameter(ip), delay(dly), directPointer(NULL), empty(false) {}
+
+    bool decrement(){ 
         delay--;
         if(delay<1){
             return false;
@@ -97,6 +96,8 @@ public:
 
 class ActivationQueue {
 public:
+    ActivationQueue(){}
+
     void push(DataPackage& pkg) {
         q.push(pkg);
     }
@@ -149,6 +150,7 @@ public:
         for(auto it=q.begin();it!=q.end();it++){
             it->step();
         }
+        timesteps++;
     }
 
     iterable_queue<DataPackage> q;
@@ -180,18 +182,59 @@ public:
 // Global declaration of the queue
 
 ActivationQueue activationQueue;
-
+#define MAX_THREAD 8
 // Global declaration of the thread pool
 std::vector<std::thread> threadPool;
 
-void execThread(int id) {
+bool readyQueue[MAX_THREAD]={false};
+
+
+void execThreadFunc(int id) {
     int threadid = id;
+    readyQueue[id]=false;
+
 
     while (1) {
-        std::cout << "Thread running " << id << std::endl;
-        usleep(1000 + id);
+        while(readyQueue[id]!=false){
+            //usleep(0);
+        }
+        //std::cout << "Thread running " << id << std::endl;
+        printf(".");
+        DataPackage package = activationQueue.pop();
+        printf(",");
+        readyQueue[id]=true;
+        printf("_");
+        usleep(0);
     }
 }
+
+void syncThreadFunc() {
+    unsigned long totalEvents =0;
+    while(1){
+        short ready=0;
+        for(int i=0;i<MAX_THREAD;i++){
+            if(readyQueue[i]==true) ready++;
+        }
+        if(ready==MAX_THREAD){
+            printf("%lu\n",timesteps);
+            // Do timestep advance
+            activationQueue.step();
+            // Clear ready queue
+            for(int i=0;i<MAX_THREAD;i++){
+                readyQueue[i]=false;
+            }
+            totalEvents++;
+        } else {
+            //printf("Waiting for threads to finish. %d/%d finished.\n",ready,MAX_THREAD);
+            //printf(" ");
+            
+            printf("Sync count =%lu, %d/%d finished.\n",totalEvents,ready,MAX_THREAD);
+        }
+        usleep(0);
+    }
+}
+
+
 // Indexes neurons according to the drawing
 class NeuronIndex {
 public:
@@ -240,13 +283,13 @@ public:
 };
 
 int main() {
-    std::cout << "Activation queue demonstrator\n";
+    std::cout << "Hello.... Real time Neurosimulator v 0.1.\n";
     //std::pair<Point3,float> activation = std::make_pair<Point3,float>(Point3(-25,196,248),0.4);
     //activationQueue.push(activation);
     //std::pair<Point3,float> poppedActivation = activationQueue.pop();
 
     // Create the worker threads for the SNN
-
+/*
     DataPackage package(Point3(-25,196,248),0.5,4); // delay 5 ms
     activationQueue.push(package);
 {
@@ -282,15 +325,22 @@ activationQueue.step();
     if(popped.isEmpty()==false){
         printf("Not empty as expected\n");
     }
-}
-/*
-    for (int i = 0; i < 32; i++) {
-        threadPool.push_back(std::thread(execThread, i));
+}*/
+
+    for (int i = 0; i < MAX_THREAD; i++) {
+        threadPool.push_back(std::thread(execThreadFunc, i));
     }
+
+    std::thread syncThread(syncThreadFunc);
+
 
     for (int i = 0; i < threadPool.size(); i++) {
         threadPool[i].join();
     }
-*/
+    syncThread.join();
+
+    
+
+
     return 0;
 }
