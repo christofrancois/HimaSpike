@@ -188,11 +188,9 @@ std::vector<std::thread> threadPool;
 
 bool readyQueue[MAX_THREAD]={false};
 
-
 void execThreadFunc(int id) {
     int threadid = id;
     readyQueue[id]=false;
-
 
     while (1) {
         while(readyQueue[id]!=false){
@@ -204,18 +202,20 @@ void execThreadFunc(int id) {
         printf(",");
         readyQueue[id]=true;
         printf("_");
-        usleep(0);
+        usleep(10000);
     }
 }
 
 void syncThreadFunc() {
     unsigned long totalEvents =0;
     while(1){
+        printf("Total events = %lu\n",totalEvents);
         short ready=0;
         for(int i=0;i<MAX_THREAD;i++){
             if(readyQueue[i]==true) ready++;
         }
         if(ready==MAX_THREAD){
+            printf("ready == MAX_THREAD\n");
             printf("%lu\n",timesteps);
             // Do timestep advance
             activationQueue.step();
@@ -223,6 +223,7 @@ void syncThreadFunc() {
             for(int i=0;i<MAX_THREAD;i++){
                 readyQueue[i]=false;
             }
+            printf("readyQueue cleared.\n");
             totalEvents++;
         } else {
             //printf("Waiting for threads to finish. %d/%d finished.\n",ready,MAX_THREAD);
@@ -230,7 +231,7 @@ void syncThreadFunc() {
             
             printf("Sync count =%lu, %d/%d finished.\n",totalEvents,ready,MAX_THREAD);
         }
-        usleep(0);
+        usleep(10000);
     }
 }
 
@@ -274,16 +275,21 @@ public:
     }
     std::vector<void *> synapses; // Pointer array to synapse storage
 
-
 };
 
 class ConnectomeStorage {
 public:
     std::vector<void *> synapses;
 };
+#define TEN_TIMES for(int tt = 0;tt<10;tt++)
 
 int main() {
     std::cout << "Hello.... Real time Neurosimulator v 0.1.\n";
+
+    TEN_TIMES {
+    DataPackage package(Point3(-25,196,248),0.5,4); // delay 5 ms
+    activationQueue.push(package);
+    }
     //std::pair<Point3,float> activation = std::make_pair<Point3,float>(Point3(-25,196,248),0.4);
     //activationQueue.push(activation);
     //std::pair<Point3,float> poppedActivation = activationQueue.pop();
